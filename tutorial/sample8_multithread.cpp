@@ -5,7 +5,7 @@
 ************************************************/
 #include <chrono>
 #include <iostream>
-#include <boost/thread.hpp>
+#include <atomic>
 #include "coroutine.h"
 #include "win_exit.h"
 using namespace std;
@@ -13,6 +13,7 @@ using namespace std::chrono;
 
 // 大计算量的函数
 int c = 0;
+std::atomic<int> done{0};
 void foo()
 {
     int v = 1;
@@ -20,6 +21,8 @@ void foo()
         v *= i;
     }
     c += v;
+    if (++done == 200)
+        co_sched.Stop();
 }
 
 int main()
@@ -38,12 +41,7 @@ int main()
         go foo;
 
     // 创建8个线程去并行执行所有协程 (由worksteal算法自动做负载均衡)
-    boost::thread_group tg;
-    for (int i = 0; i < 8; ++i)
-        tg.create_thread([] {
-                co_sched.RunUntilNoTask();
-                });
-    tg.join_all();
+    co_sched.Start(8);
 
     end = system_clock::now();
     cout << "go with coroutine, cost ";

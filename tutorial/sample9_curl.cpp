@@ -45,8 +45,6 @@ void show_status()
     static int last_ok = 0, last_error = 0;
     printf("ok:%d, error:%d\n", g_ok - last_ok, g_error - last_error);
     last_ok = g_ok, last_error = g_error;
-
-    co_timer_add(std::chrono::seconds(1), show_status);
 }
 
 int main(int argc, char** argv)
@@ -65,13 +63,15 @@ int main(int argc, char** argv)
     for (int i = 0; i < concurrency; ++i)
         go [=]{ request_once(argv[1], i); };
 
-    co_timer_add(std::chrono::seconds(1), show_status);
+    std::thread([]{ 
+                for (;;) {
+                    show_status(); 
+                    sleep(1);
+                }
+            }).detach();
 
-    // 创建8个线程去并行执行所有协程
-    boost::thread_group tg;
-    for (int i = 0; i < 8; ++i)
-        tg.create_thread([]{ co_sched.RunLoop(); });
-    tg.join_all();
+    // 创建nCores个线程去并行执行所有协程
+    co_sched.Start(0);
     return 0;
 }
 
